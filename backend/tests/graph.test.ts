@@ -1,169 +1,256 @@
 import { Graph } from '../src/graph';
-import {VariableNode, SetVariableNode, GetVariableNode} from '../src/node';
-import { IfElseNode } from '../src/IfElseNode';
-import { AddNode } from '../src/addNode';
-import { SubtractNode } from '../src/subtractNode';
-import { MultiplyNode } from '../src/multiplyNode';
-import { DivideNode } from '../src/divideNode';
-import {Edge} from "../src/edge";
+import { SetVariableNode, GetVariableNode, AdditionNode, MultiplicationNode, SubtractionNode, GreaterThanNode, LessThanNode, EqualNode, AndNode, OrNode, NotNode, IfElseNode } from '../src/node';
+import { VectorStoreNode } from '../src/node';
 
-test('Graph generates Python code with variables declared at the top including result', () => {
+test('Simple arithmetic expression: c = a + b', () => {
     const graph = new Graph();
 
-    // Set initial values for variables 'a', 'b', and declare 'result'
-    graph.setVariable('a', 10);
-    graph.setVariable('b', 5);
-    graph.setVariable('result', null);  // Declare result variable
+    // Add variables
+    graph.addVariable('a', 1, true);
+    graph.addVariable('b', 2, true);
+    graph.addVariable('c', 0, true); // Initial value of c
 
-    // Create VariableNodes for 'a' and 'b'
-    const getVarNodeA = new GetVariableNode('1', 'a');
-    const getVarNodeB = new GetVariableNode('2', 'b');
-    graph.addNode(getVarNodeA);
-    graph.addNode(getVarNodeB);
+    // Create nodes for expression: c = a + b
+    const getA = new GetVariableNode('1', 'a', graph);
+    const getB = new GetVariableNode('2', 'b', graph);
+    const add = new AdditionNode('3');
+    const setC = new SetVariableNode('4', 'c', graph);
 
-    // Create AddNode to add 'a' and 'b'
-    const addNode = new AddNode('3');
-    graph.addNode(addNode);
+    // Add nodes to the graph
+    graph.addNode(getA);
+    graph.addNode(getB);
+    graph.addNode(add);
+    graph.addNode(setC);
 
-    // Set the result of AddNode to a new variable 'result'
-    const setResultNode = new SetVariableNode('4', 'result');
-    graph.addNode(setResultNode);
+    // Connect nodes
+    graph.connectNodes('1', 'output', '3', 'left'); // Connect a to left input of addition
+    graph.connectNodes('2', 'output', '3', 'right'); // Connect b to right input of addition
+    graph.connectNodes('3', 'result', '4', 'input'); // Connect result of addition to c
 
-    // Link the GetVariableNodes to AddNode
-    graph.addEdge(new Edge(getVarNodeA.id, 'output', addNode.id, 'a'));
-    graph.addEdge(new Edge(getVarNodeB.id, 'output', addNode.id, 'b'));
+    // Generate code
+    const code = graph.generateFullPythonCodeFromNode('4');
 
-    // Link the output of AddNode to the SetVariableNode 'result'
-    graph.addEdge(new Edge(addNode.id, 'output', setResultNode.id, 'input'));
+    // Expected code
+    const expectedCode = `
+a = 1
+b = 2
+c = 0
 
-    // Generate Python code
-    const code = graph.generatePythonCode();
+c = (a + b)
+`.trim();
 
-    // Check the generated Python code
-    expect(code).toContain('a = 10');
-    expect(code).toContain('b = 5');
-    expect(code).toContain('result = a + b');
+    expect(code).toBe(expectedCode);
 });
 
-
-test('Graph correctly handles SubtractNode with two variables and assigns result to SetVariableNode', () => {
+test('Complex arithmetic expression: d = (a + b) * (c - (a * b))', () => {
     const graph = new Graph();
 
-    // Create two variable nodes for 'a' and 'b'
-    const varNodeA = new VariableNode('1', 'a', 10);
-    const varNodeB = new VariableNode('2', 'b', 5);
-    graph.addNode(varNodeA);
-    graph.addNode(varNodeB);
+    // Add variables
+    graph.addVariable('a', 2, true);
+    graph.addVariable('b', 3, true);
+    graph.addVariable('c', 10, true);
+    graph.addVariable('d', 0, true); // Initial value of d
 
-    // Create a SubtractNode to subtract 'b' from 'a'
-    const subtractNode = new SubtractNode('3');
-    graph.addNode(subtractNode);
+    // Create nodes for expression: d = (a + b) * (c - (a * b))
+    const getA1 = new GetVariableNode('1', 'a', graph);
+    const getB1 = new GetVariableNode('2', 'b', graph);
+    const getA2 = new GetVariableNode('3', 'a', graph);
+    const getB2 = new GetVariableNode('4', 'b', graph);
+    const getC = new GetVariableNode('5', 'c', graph);
+    const add = new AdditionNode('6');
+    const multiply1 = new MultiplicationNode('7');
+    const subtract = new SubtractionNode('8');
+    const multiply2 = new MultiplicationNode('9');
+    const setD = new SetVariableNode('10', 'd', graph);
 
-    // Set the result of SubtractNode to a new variable 'result'
-    const setVarNode = new SetVariableNode('4', 'result');
-    graph.addNode(setVarNode);
+    // Add nodes to the graph
+    graph.addNode(getA1);
+    graph.addNode(getB1);
+    graph.addNode(getA2);
+    graph.addNode(getB2);
+    graph.addNode(getC);
+    graph.addNode(add);
+    graph.addNode(multiply1);
+    graph.addNode(subtract);
+    graph.addNode(multiply2);
+    graph.addNode(setD);
 
-    // Generate Python code
-    const code = graph.generatePythonCode();
+    // Connect nodes
+    graph.connectNodes('1', 'output', '6', 'left');  // a to addition
+    graph.connectNodes('2', 'output', '6', 'right'); // b to addition
+    graph.connectNodes('3', 'output', '7', 'left');  // a to multiplication
+    graph.connectNodes('4', 'output', '7', 'right'); // b to multiplication
+    graph.connectNodes('5', 'output', '8', 'left');  // c to subtraction
+    graph.connectNodes('7', 'result', '8', 'right'); // (a * b) to subtraction
+    graph.connectNodes('6', 'result', '9', 'left');  // (a + b) to multiplication
+    graph.connectNodes('8', 'result', '9', 'right'); // (c - (a * b)) to multiplication
+    graph.connectNodes('9', 'result', '10', 'input'); // Final result to d
 
-    // Verify the Python code contains the subtraction of 'b' from 'a' and assigns it to 'result'
-    expect(code).toContain('a = 10');
-    expect(code).toContain('b = 5');
-    expect(code).toContain('result = a - b');
+    // Generate code
+    const code = graph.generateFullPythonCodeFromNode('10');
+
+    // Expected code
+    const expectedCode = `
+a = 2
+b = 3
+c = 10
+d = 0
+
+d = ((a + b) * (c - (a * b)))
+`.trim();
+
+    expect(code).toBe(expectedCode);
 });
 
-test('Graph correctly handles MultiplyNode with two variables and assigns result to SetVariableNode', () => {
+test('Complex expression with if-else and control flow: e = (a + b) if (c > (a * b)) else (c - (a * b))', () => {
     const graph = new Graph();
 
-    // Create two variable nodes for 'a' and 'b'
-    const varNodeA = new VariableNode('1', 'a', 10);
-    const varNodeB = new VariableNode('2', 'b', 5);
-    graph.addNode(varNodeA);
-    graph.addNode(varNodeB);
+    // Add variables
+    graph.addVariable('a', 2, true);
+    graph.addVariable('b', 3, true);
+    graph.addVariable('c', 10, true);
+    graph.addVariable('e', 0, true);
 
-    // Create a MultiplyNode to multiply 'a' and 'b'
-    const multiplyNode = new MultiplyNode('3');
-    graph.addNode(multiplyNode);
+    // Create nodes
+    const getA1 = new GetVariableNode('1', 'a', graph);
+    const getB1 = new GetVariableNode('2', 'b', graph);
+    const getA2 = new GetVariableNode('3', 'a', graph);
+    const getB2 = new GetVariableNode('4', 'b', graph);
+    const getC1 = new GetVariableNode('5', 'c', graph);
+    const getC2 = new GetVariableNode('6', 'c', graph);
+    const add = new AdditionNode('7');
+    const multiply = new MultiplicationNode('8');
+    const subtract = new SubtractionNode('9');
+    const greaterThan = new GreaterThanNode('10');
+    const ifElse = new IfElseNode('11');
+    const setE1 = new SetVariableNode('12', 'e', graph);
+    const setE2 = new SetVariableNode('13', 'e', graph);
 
-    // Set the result of MultiplyNode to a new variable 'result'
-    const setVarNode = new SetVariableNode('4', 'result');
-    graph.addNode(setVarNode);
+    // Add nodes to the graph
+    [getA1, getB1, getA2, getB2, getC1, getC2, add, multiply, subtract, greaterThan, ifElse, setE1, setE2].forEach(node => graph.addNode(node));
 
-    // Generate Python code
-    const code = graph.generatePythonCode();
+    // Connect nodes
+    graph.connectNodes('1', 'output', '7', 'left');
+    graph.connectNodes('2', 'output', '7', 'right');
+    graph.connectNodes('3', 'output', '8', 'left');
+    graph.connectNodes('4', 'output', '8', 'right');
+    graph.connectNodes('5', 'output', '10', 'left');
+    graph.connectNodes('8', 'result', '10', 'right');
+    graph.connectNodes('6', 'output', '9', 'left');
+    graph.connectNodes('8', 'result', '9', 'right');
+    graph.connectNodes('10', 'result', '11', 'condition');
+    graph.connectNodes('7', 'result', '12', 'input');
+    graph.connectNodes('9', 'result', '13', 'input');
+    graph.connectNodes('11', 'if_true', '12', 'controlIn');
+    graph.connectNodes('11', 'if_false', '13', 'controlIn');
 
-    // Verify the Python code contains the multiplication of 'a' and 'b' and assigns it to 'result'
-    expect(code).toContain('a = 10');
-    expect(code).toContain('b = 5');
-    expect(code).toContain('result = a * b');
+    // Generate code
+    const code = graph.generateFullPythonCodeFromNode('11');
+
+    // Expected code
+    const expectedCode = `
+a = 2
+b = 3
+c = 10
+e = 0
+
+if ((c > (a * b))):
+    e = (a + b)
+else:
+    e = (c - (a * b))
+`.trim();
+
+    expect(code).toBe(expectedCode);
 });
 
-test('Graph correctly handles DivideNode with two variables and assigns result to SetVariableNode', () => {
+test('Complex expression with multiple comparisons and logical operators', () => {
     const graph = new Graph();
 
-    // Create two variable nodes for 'a' and 'b'
-    const varNodeA = new VariableNode('1', 'a', 10);
-    const varNodeB = new VariableNode('2', 'b', 5);
-    graph.addNode(varNodeA);
-    graph.addNode(varNodeB);
+    // Add variables
+    graph.addVariable('a', 5, true);
+    graph.addVariable('b', 10, true);
+    graph.addVariable('c', 15, true);
+    graph.addVariable('result', false, true);
 
-    // Create a DivideNode to divide 'a' by 'b'
-    const divideNode = new DivideNode('3');
-    graph.addNode(divideNode);
+    // Create nodes for expression: result = (a < b and b < c) or not (a == b)
+    const getA1 = new GetVariableNode('1', 'a', graph);
+    const getB1 = new GetVariableNode('2', 'b', graph);
+    const getB2 = new GetVariableNode('3', 'b', graph);
+    const getC = new GetVariableNode('4', 'c', graph);
+    const getA2 = new GetVariableNode('5', 'a', graph);
+    const getB3 = new GetVariableNode('6', 'b', graph);
+    const lessThan1 = new LessThanNode('7');
+    const lessThan2 = new LessThanNode('8');
+    const equal = new EqualNode('9');
+    const and = new AndNode('10');
+    const not = new NotNode('11');
+    const or = new OrNode('12');
+    const setResult = new SetVariableNode('13', 'result', graph);
 
-    // Set the result of DivideNode to a new variable 'result'
-    const setVarNode = new SetVariableNode('4', 'result');
-    graph.addNode(setVarNode);
+    // Add nodes to the graph
+    [getA1, getB1, getB2, getC, getA2, getB3, lessThan1, lessThan2, equal, and, not, or, setResult].forEach(node => graph.addNode(node));
 
-    // Generate Python code
-    const code = graph.generatePythonCode();
+    // Connect nodes
+    graph.connectNodes('1', 'output', '7', 'left');   // a to first less than
+    graph.connectNodes('2', 'output', '7', 'right');  // b to first less than
+    graph.connectNodes('3', 'output', '8', 'left');   // b to second less than
+    graph.connectNodes('4', 'output', '8', 'right');  // c to second less than
+    graph.connectNodes('5', 'output', '9', 'left');   // a to equal
+    graph.connectNodes('6', 'output', '9', 'right');  // b to equal
+    graph.connectNodes('7', 'result', '10', 'left');  // (a < b) to and
+    graph.connectNodes('8', 'result', '10', 'right'); // (b < c) to and
+    graph.connectNodes('9', 'result', '11', 'input'); // (a == b) to not
+    graph.connectNodes('10', 'result', '12', 'left'); // (a < b and b < c) to or
+    graph.connectNodes('11', 'result', '12', 'right');// not (a == b) to or
+    graph.connectNodes('12', 'result', '13', 'input');// final result to setResult
 
-    // Verify the Python code contains the division of 'a' by 'b' and assigns it to 'result'
-    expect(code).toContain('a = 10');
-    expect(code).toContain('b = 5');
-    expect(code).toContain('result = a / b');
+    // Generate code
+    const code = graph.generateFullPythonCodeFromNode('13');
+
+    // Expected code
+    const expectedCode = `
+a = 5
+b = 10
+c = 15
+result = false
+
+result = (((a < b) and (b < c)) or (not (a == b)))
+`.trim();
+
+    expect(code).toBe(expectedCode);
 });
 
-test('Graph correctly handles IfElseNode and assigns result based on condition', () => {
-    const graph = new Graph();
+test('VectorStoreNode generates correct Python code', () => {
+    const node = new VectorStoreNode('1');
+    node.setOption('storeType', 'pinecone');
+    node.setOption('useCache', true);
+    node.setOption('cacheType', 'in_memory');
+    node.setOption('indexName', 'test_index');
 
-    // Set initial values for variables 'a', 'b', and declare 'result'
-    graph.setVariable('a', 10);
-    graph.setVariable('b', 5);
-    graph.setVariable('result', null);  // Declare result variable
+    const values = {
+        documents: 'documents_var',
+        embeddings: 'embeddings_var'
+    };
 
-    // Create VariableNodes for 'a' and 'b'
-    const getVarNodeA = new GetVariableNode('1', 'a');
-    const getVarNodeB = new GetVariableNode('2', 'b');
-    graph.addNode(getVarNodeA);
-    graph.addNode(getVarNodeB);
+    const expectedCode = `
+from langchain.vectorstores import Pinecone
 
-    // Create IfElseNode with condition (e.g., a > b)
-    const ifElseNode = new IfElseNode('3', 'If a > b');
-    graph.addNode(ifElseNode);
+from langchain.embeddings import CacheBackedEmbeddings
+from langchain.storage import InMemoryByteStore
 
-    // Set the result based on condition
-    const setResultNodeIf = new SetVariableNode('4', 'result');
-    const setResultNodeElse = new SetVariableNode('5', 'result');
-    graph.addNode(setResultNodeIf);
-    graph.addNode(setResultNodeElse);
+store = InMemoryByteStore()
+cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+    underlying_embedder=embeddings_var,
+    document_embedding_cache=store,
+    namespace="test_index_namespace"
+)
 
-    // Link the GetVariableNode 'a' and 'b' to the IfElseNode condition
-    graph.addEdge(new Edge(getVarNodeA.id, 'output', ifElseNode.id, 'condition'));
-    graph.addEdge(new Edge(getVarNodeB.id, 'output', ifElseNode.id, 'condition'));
+vector_store = Pinecone.from_documents(
+    documents=documents_var,
+    embedding=cached_embedder,
+    index_name="test_index"
+)
+`;
 
-    // Link If branch to set result to 'a'
-    graph.addEdge(new Edge(ifElseNode.id, 'if_code', setResultNodeIf.id, 'input'));
-
-    // Link Else branch to set result to 'b'
-    graph.addEdge(new Edge(ifElseNode.id, 'else_code', setResultNodeElse.id, 'input'));
-
-    // Generate Python code
-    const code = graph.generatePythonCode();
-
-    // Check that the code correctly contains the if-else structure and assigns result
-    expect(code).toContain('if a > b:');
-    expect(code).toContain('result = a');
-    expect(code).toContain('else:');
-    expect(code).toContain('result = b');
+    expect(node.generatePythonCode(values).trim()).toBe(expectedCode.trim());
 });
