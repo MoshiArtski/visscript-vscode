@@ -397,4 +397,28 @@ export class Graph {
         }
         return '';
     }
+
+    addVariableToGraph(name: string, value: any, hasDefault: boolean = true) {
+        this.addVariable(name, value, hasDefault);
+    }
+
+    removeVariableFromGraph(name: string) {
+        this.deleteVariable(name);
+    }
+
+    getVariables(): Record<string, any> {
+        const variables: Record<string, any> = {};
+        this.variables.forEach((value, key) => {
+            variables[key] = value.value;
+        });
+        return variables;
+    }
+
+    updateVariableInGraph(name: string, value: any) {
+        if (this.variables.has(name)) {
+            this.variables.set(name, { value, hasDefault: this.variables.get(name)!.hasDefault });
+        } else {
+            throw new Error(`Variable "${name}" does not exist in the graph.`);
+        }
+    }
 }
